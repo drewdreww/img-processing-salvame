@@ -89,7 +89,7 @@ namespace ImageProcessingSalvame
                     imageA?.Dispose();
                     imageA = new Bitmap(openFileDialog2.FileName);
                     pictureBoxImageA.Image = imageA;
-                    statusLabel.Text = $"Loaded Image A (Background): {Path.GetFileName(openFileDialog2.FileName)}";
+                    statusLabel.Text = $"Loaded Image A (Background): {Path.GetFileName(openFileDialog2.FileName)} - Size: {imageA.Width}x{imageA.Height}";
                 }
                 catch (Exception ex)
                 {
@@ -107,7 +107,7 @@ namespace ImageProcessingSalvame
                     imageB?.Dispose();
                     imageB = new Bitmap(openFileDialog3.FileName);
                     pictureBoxImageB.Image = imageB;
-                    statusLabel.Text = $"Loaded Image B (Green Screen): {Path.GetFileName(openFileDialog3.FileName)}";
+                    statusLabel.Text = $"Loaded Image B (Green Screen): {Path.GetFileName(openFileDialog3.FileName)} - Size: {imageB.Width}x{imageB.Height}";
                 }
                 catch (Exception ex)
                 {
@@ -243,25 +243,46 @@ namespace ImageProcessingSalvame
                 return;
             }
 
-            if (imageA.Width != imageB.Width || imageA.Height != imageB.Height)
-            {
-                MessageBox.Show("Both images must have the same dimensions. Please load images with the same size.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
             processedImage?.Dispose();
             processedImage = PerformSubtraction(imageB, imageA);
             pictureBoxSubtractionResult.Image = processedImage;
             statusLabel.Text = "Applied: Image Subtraction (Green Screen Removal)";
         }
 
+        private Bitmap ResizeImage(Image image, int width, int height)
+        {
+            var destRect = new Rectangle(0, 0, width, height);
+            var destImage = new Bitmap(width, height);
+
+            destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution);
+
+            using (var graphics = Graphics.FromImage(destImage))
+            {
+                graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+
+                using (var wrapMode = new ImageAttributes())
+                {
+                    wrapMode.SetWrapMode(System.Drawing.Drawing2D.WrapMode.TileFlipXY);
+                    graphics.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode);
+                }
+            }
+
+            return destImage;
+        }
+
         private Bitmap PerformSubtraction(Bitmap imageB, Bitmap imageA)
         {
+            // Resize imageA to match imageB dimensions
+            Bitmap resizedImageA = ResizeImage(imageA, imageB.Width, imageB.Height);
+
             Bitmap resultImage = new Bitmap(imageB.Width, imageB.Height);
 
             // Define green color and threshold as per requirements
             Color mygreen = Color.FromArgb(0, 255, 0); // Pure green
-            int greygreen = (mygreen.R + mygreen.G + mygreen.B) / 3;
             int threshold = 5;
 
             for (int x = 0; x < imageB.Width; x++)
@@ -269,18 +290,13 @@ namespace ImageProcessingSalvame
                 for (int y = 0; y < imageB.Height; y++)
                 {
                     Color pixelB = imageB.GetPixel(x, y);
-                    Color pixelA = imageA.GetPixel(x, y);
+                    Color pixelA = resizedImageA.GetPixel(x, y);
 
-                    // Convert pixels to grayscale for comparison
-                    int greyB = (pixelB.R + pixelB.G + pixelB.B) / 3;
-                    int greyGreen = (mygreen.R + mygreen.G + mygreen.B) / 3;
+                    // Enhanced green detection - check if pixel is predominantly green
+                    bool isGreen = pixelB.G > pixelB.R + 50 && pixelB.G > pixelB.B + 50 && pixelB.G > 100;
 
-                    // Calculate absolute difference
-                    int difference = Math.Abs(greyB - greyGreen);
-
-                    // If difference is within threshold, use background (Image A)
-                    // Otherwise, use the pixel from Image B
-                    if (difference <= threshold)
+                    // If pixel is green, use background (Image A), otherwise use Image B
+                    if (isGreen)
                     {
                         resultImage.SetPixel(x, y, pixelA);
                     }
@@ -290,6 +306,10 @@ namespace ImageProcessingSalvame
                     }
                 }
             }
+
+            // Clean up the resized image
+            resizedImageA.Dispose();
+
             return resultImage;
         }
 
