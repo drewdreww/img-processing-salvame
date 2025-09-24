@@ -225,6 +225,28 @@
             this.btnStopWebcam.Click += new System.EventHandler(this.btnStopWebcam_Click);
 
             // groupBoxSubtraction
+            this.btnLoadBackgroundForWebcam = new System.Windows.Forms.Button();
+            this.btnWebcamSubtraction = new System.Windows.Forms.Button();
+            this.labelWebcamStatus = new System.Windows.Forms.Label();
+
+            this.groupBoxWebcam.Controls.Add(this.btnLoadBackgroundForWebcam);
+            this.groupBoxWebcam.Controls.Add(this.btnWebcamSubtraction);
+            this.groupBoxWebcam.Controls.Add(this.labelWebcamStatus);
+
+            this.btnLoadBackgroundForWebcam.Location = new System.Drawing.Point(10, 300);
+            this.btnLoadBackgroundForWebcam.Size = new System.Drawing.Size(200, 30);
+            this.btnLoadBackgroundForWebcam.Text = "Load Background for Webcam";
+            this.btnLoadBackgroundForWebcam.Click += new System.EventHandler(this.btnLoadBackgroundForWebcam_Click);
+
+            this.btnWebcamSubtraction.Location = new System.Drawing.Point(220, 300);
+            this.btnWebcamSubtraction.Size = new System.Drawing.Size(200, 30);
+            this.btnWebcamSubtraction.Text = "Toggle Webcam Subtraction";
+            this.btnWebcamSubtraction.Click += new System.EventHandler(this.btnWebcamSubtraction_Click);
+
+            this.labelWebcamStatus.Location = new System.Drawing.Point(10, 340);
+            this.labelWebcamStatus.AutoSize = true;
+            this.labelWebcamStatus.Text = "Webcam Subtraction: OFF";
+
             this.groupBoxSubtraction.Controls.Add(this.pictureBoxSubtractionResult);
             this.groupBoxSubtraction.Controls.Add(this.pictureBoxImageA);
             this.groupBoxSubtraction.Controls.Add(this.pictureBoxImageB);
@@ -357,6 +379,9 @@
 
         #endregion
 
+        private System.Windows.Forms.Button btnLoadBackgroundForWebcam;
+        private System.Windows.Forms.Button btnWebcamSubtraction;
+        private System.Windows.Forms.Label labelWebcamStatus;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;

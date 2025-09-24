@@ -14,11 +14,13 @@ namespace ImageProcessingSalvame
         private Bitmap processedImage;
         private Bitmap imageB; // Green screen image
         private Bitmap imageA; // Background image
+        private Bitmap webcamBackground; // Background for webcam subtraction
 
         // Webcam variables
         private Device currentWebcam;
         private Bitmap webcamFrame;
         private bool isWebcamRunning = false;
+        private bool isWebcamSubtractionMode = false;
         private WebcamFilter currentWebcamFilter = WebcamFilter.NoFilter;
 
         private enum WebcamFilter
@@ -27,7 +29,8 @@ namespace ImageProcessingSalvame
             BasicCopy,
             Greyscale,
             Inversion,
-            Sepia
+            Sepia,
+            Subtraction
         }
 
         public Form1()
@@ -53,6 +56,7 @@ namespace ImageProcessingSalvame
             imageA?.Dispose();
             imageB?.Dispose();
             webcamFrame?.Dispose();
+            webcamBackground?.Dispose();
         }
 
         #region Image Loading Methods
@@ -112,6 +116,24 @@ namespace ImageProcessingSalvame
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Error loading image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void btnLoadBackgroundForWebcam_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    webcamBackground?.Dispose();
+                    webcamBackground = new Bitmap(openFileDialog1.FileName);
+                    labelWebcamStatus.Text = "Background Loaded";
+                    statusLabel.Text = $"Loaded background for webcam: {Path.GetFileName(openFileDialog1.FileName)}";
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error loading background image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -274,43 +296,46 @@ namespace ImageProcessingSalvame
             return destImage;
         }
 
-        private Bitmap PerformSubtraction(Bitmap imageB, Bitmap imageA)
+        private Bitmap PerformSubtraction(Bitmap foreground, Bitmap background)
         {
-            // Resize imageA to match imageB dimensions
-            Bitmap resizedImageA = ResizeImage(imageA, imageB.Width, imageB.Height);
+            // Resize background to match foreground dimensions
+            Bitmap resizedBackground = ResizeImage(background, foreground.Width, foreground.Height);
 
-            Bitmap resultImage = new Bitmap(imageB.Width, imageB.Height);
+            Bitmap resultImage = new Bitmap(foreground.Width, foreground.Height);
 
-            // Define green color and threshold as per requirements
-            Color mygreen = Color.FromArgb(0, 255, 0); // Pure green
-            int threshold = 5;
-
-            for (int x = 0; x < imageB.Width; x++)
+            for (int x = 0; x < foreground.Width; x++)
             {
-                for (int y = 0; y < imageB.Height; y++)
+                for (int y = 0; y < foreground.Height; y++)
                 {
-                    Color pixelB = imageB.GetPixel(x, y);
-                    Color pixelA = resizedImageA.GetPixel(x, y);
+                    Color foregroundPixel = foreground.GetPixel(x, y);
+                    Color backgroundPixel = resizedBackground.GetPixel(x, y);
 
-                    // Enhanced green detection - check if pixel is predominantly green
-                    bool isGreen = pixelB.G > pixelB.R + 50 && pixelB.G > pixelB.B + 50 && pixelB.G > 100;
+                    // Enhanced green detection
+                    bool isGreen = IsGreenScreenPixel(foregroundPixel);
 
-                    // If pixel is green, use background (Image A), otherwise use Image B
+                    // If pixel is green, use background, otherwise use foreground
                     if (isGreen)
                     {
-                        resultImage.SetPixel(x, y, pixelA);
+                        resultImage.SetPixel(x, y, backgroundPixel);
                     }
                     else
                     {
-                        resultImage.SetPixel(x, y, pixelB);
+                        resultImage.SetPixel(x, y, foregroundPixel);
                     }
                 }
             }
 
-            // Clean up the resized image
-            resizedImageA.Dispose();
-
+            resizedBackground.Dispose();
             return resultImage;
+        }
+
+        private bool IsGreenScreenPixel(Color pixel)
+        {
+            // Enhanced green screen detection
+            return pixel.G > pixel.R + 50 &&
+                   pixel.G > pixel.B + 50 &&
+                   pixel.G > 100 &&
+                   Math.Abs(pixel.R - pixel.B) < 30; // Ensure red and blue are somewhat balanced
         }
 
         #endregion
@@ -352,6 +377,33 @@ namespace ImageProcessingSalvame
         }
 
         private void btnStopWebcam_Click(object sender, EventArgs e) => StopWebcam();
+
+        private void btnWebcamSubtraction_Click(object sender, EventArgs e)
+        {
+            if (webcamBackground == null)
+            {
+                MessageBox.Show("Please load a background image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            isWebcamSubtractionMode = !isWebcamSubtractionMode;
+
+            if (isWebcamSubtractionMode)
+            {
+                currentWebcamFilter = WebcamFilter.Subtraction;
+                btnWebcamSubtraction.Text = "Stop Subtraction";
+                labelWebcamStatus.Text = "Subtraction Active";
+                statusLabel.Text = "Webcam subtraction mode activated - Stand in front of green screen";
+            }
+            else
+            {
+                currentWebcamFilter = WebcamFilter.NoFilter;
+                btnWebcamSubtraction.Text = "Webcam Subtraction";
+                labelWebcamStatus.Text = "Subtraction Stopped";
+                statusLabel.Text = "Webcam subtraction mode deactivated";
+            }
+        }
+
         private void startWebcamToolStripMenuItem_Click(object sender, EventArgs e) => btnStartWebcam_Click(sender, e);
         private void stopWebcamToolStripMenuItem_Click(object sender, EventArgs e) => StopWebcam();
 
@@ -382,6 +434,7 @@ namespace ImageProcessingSalvame
                 timerWebcam.Stop();
                 currentWebcam?.Stop();
                 isWebcamRunning = false;
+                isWebcamSubtractionMode = false;
 
                 // Clean up
                 var oldOriginal = pictureBoxWebcamOriginal.Image;
@@ -393,6 +446,8 @@ namespace ImageProcessingSalvame
                 webcamFrame?.Dispose();
                 webcamFrame = null;
 
+                btnWebcamSubtraction.Text = "Webcam Subtraction";
+                labelWebcamStatus.Text = "Webcam Stopped";
                 statusLabel.Text = "Webcam stopped";
             }
         }
@@ -436,40 +491,99 @@ namespace ImageProcessingSalvame
 
         private Bitmap ApplyWebcamFilter(Bitmap frame, WebcamFilter filter)
         {
-            return filter switch
+            switch (filter)
             {
-                WebcamFilter.BasicCopy => BasicCopy(frame),
-                WebcamFilter.Greyscale => ConvertToGrayscale(frame),
-                WebcamFilter.Inversion => InvertColors(frame),
-                WebcamFilter.Sepia => ApplySepia(frame),
-                _ => BasicCopy(frame),
-            };
+                case WebcamFilter.BasicCopy:
+                    return BasicCopy(frame);
+                case WebcamFilter.Greyscale:
+                    return ConvertToGrayscale(frame);
+                case WebcamFilter.Inversion:
+                    return InvertColors(frame);
+                case WebcamFilter.Sepia:
+                    return ApplySepia(frame);
+                case WebcamFilter.Subtraction:
+                    return PerformWebcamSubtraction(frame);
+                case WebcamFilter.NoFilter:
+                default:
+                    return BasicCopy(frame);
+            }
+        }
+
+        private Bitmap PerformWebcamSubtraction(Bitmap webcamFrame)
+        {
+            if (webcamBackground == null) return BasicCopy(webcamFrame);
+
+            // Resize background to match webcam frame size
+            Bitmap resizedBackground = ResizeImage(webcamBackground, webcamFrame.Width, webcamFrame.Height);
+            Bitmap result = new Bitmap(webcamFrame.Width, webcamFrame.Height);
+
+            for (int x = 0; x < webcamFrame.Width; x++)
+            {
+                for (int y = 0; y < webcamFrame.Height; y++)
+                {
+                    Color webcamPixel = webcamFrame.GetPixel(x, y);
+                    Color backgroundPixel = resizedBackground.GetPixel(x, y);
+
+                    bool isGreen = IsGreenScreenPixel(webcamPixel);
+
+                    if (isGreen)
+                    {
+                        result.SetPixel(x, y, backgroundPixel);
+                    }
+                    else
+                    {
+                        result.SetPixel(x, y, webcamPixel);
+                    }
+                }
+            }
+
+            resizedBackground.Dispose();
+            return result;
         }
 
         // Webcam filter handlers
         private void webcamNoFilterToolStripMenuItem_Click(object sender, EventArgs e)
         {
             currentWebcamFilter = WebcamFilter.NoFilter;
+            isWebcamSubtractionMode = false;
+            btnWebcamSubtraction.Text = "Webcam Subtraction";
+            labelWebcamStatus.Text = "No Filter";
             statusLabel.Text = "Webcam filter: No Filter";
         }
+
         private void webcamBasicCopyToolStripMenuItem_Click(object sender, EventArgs e)
         {
             currentWebcamFilter = WebcamFilter.BasicCopy;
+            isWebcamSubtractionMode = false;
+            btnWebcamSubtraction.Text = "Webcam Subtraction";
+            labelWebcamStatus.Text = "Basic Copy";
             statusLabel.Text = "Webcam filter: Basic Copy";
         }
+
         private void webcamGreyscaleToolStripMenuItem_Click(object sender, EventArgs e)
         {
             currentWebcamFilter = WebcamFilter.Greyscale;
+            isWebcamSubtractionMode = false;
+            btnWebcamSubtraction.Text = "Webcam Subtraction";
+            labelWebcamStatus.Text = "Greyscale";
             statusLabel.Text = "Webcam filter: Greyscale";
         }
+
         private void webcamInversionToolStripMenuItem_Click(object sender, EventArgs e)
         {
             currentWebcamFilter = WebcamFilter.Inversion;
+            isWebcamSubtractionMode = false;
+            btnWebcamSubtraction.Text = "Webcam Subtraction";
+            labelWebcamStatus.Text = "Inversion";
             statusLabel.Text = "Webcam filter: Inversion";
         }
+
         private void webcamSepiaToolStripMenuItem_Click(object sender, EventArgs e)
         {
             currentWebcamFilter = WebcamFilter.Sepia;
+            isWebcamSubtractionMode = false;
+            btnWebcamSubtraction.Text = "Webcam Subtraction";
+            labelWebcamStatus.Text = "Sepia";
             statusLabel.Text = "Webcam filter: Sepia";
         }
 
