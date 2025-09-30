@@ -695,5 +695,79 @@ namespace ImageProcessingSalvame
             public WebcamDeviceItem(Device device) { Device = device; }
             public override string ToString() => Device.Name;
         }
+        private void blurToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please load an image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            processedImage?.Dispose();
+            processedImage = new Bitmap(originalImage);
+            BitmapFilter.Smooth(processedImage, 1);
+            pictureBoxProcessed.Image = processedImage;
+            statusLabel.Text = "Applied: Blur Filter";
+        }
+
+        private void sharpenToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please load an image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            processedImage?.Dispose();
+            processedImage = new Bitmap(originalImage);
+            BitmapFilter.Sharpen(processedImage, 11);
+            pictureBoxProcessed.Image = processedImage;
+            statusLabel.Text = "Applied: Sharpen Filter";
+        }
+
+        private void edgeDetectToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please load an image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            processedImage?.Dispose();
+            processedImage = new Bitmap(originalImage);
+            BitmapFilter.EdgeDetectQuick(processedImage);
+            pictureBoxProcessed.Image = processedImage;
+            statusLabel.Text = "Applied: Edge Detection Filter";
+        }
+
+        private void embossToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please load an image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            processedImage?.Dispose();
+            processedImage = new Bitmap(originalImage);
+            BitmapFilter.EmbossLaplacian(processedImage);
+            pictureBoxProcessed.Image = processedImage;
+            statusLabel.Text = "Applied: Emboss Filter";
+        }
+
+        private void gaussianToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please load an image first.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            processedImage?.Dispose();
+            processedImage = new Bitmap(originalImage);
+            BitmapFilter.GaussianBlur(processedImage, 4);
+            pictureBoxProcessed.Image = processedImage;
+            statusLabel.Text = "Applied: Gaussian Blur Filter";
+        }
     }
 }
